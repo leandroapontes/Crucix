@@ -16,6 +16,7 @@ import { createLLMProvider } from './lib/llm/index.mjs';
 import { generateLLMIdeas } from './lib/llm/ideas.mjs';
 import { TelegramAlerter } from './lib/alerts/telegram.mjs';
 import { DiscordAlerter } from './lib/alerts/discord.mjs';
+import { authMiddleware, handleLogin, handleLogout } from './lib/auth/middleware.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = __dirname;
@@ -230,6 +231,16 @@ if (discordAlerter.isConfigured) {
 
 // === Express Server ===
 const app = express();
+app.use(express.urlencoded({ extended: true }));
+
+// Global auth layer (bypasses /login, /api/health and specific static assets internally)
+app.use(authMiddleware);
+
+// Login routes
+app.get('/login', (req, res) => res.sendFile(join(ROOT, 'dashboard/public/login.html')));
+app.post('/login', handleLogin);
+app.get('/logout', handleLogout);
+
 app.use(express.static(join(ROOT, 'dashboard/public')));
 
 // Serve loading page until first sweep completes, then the dashboard with injected locale
