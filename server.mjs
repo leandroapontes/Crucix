@@ -20,8 +20,9 @@ import { authMiddleware, handleLogin, handleLogout } from './lib/auth/middleware
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = __dirname;
-const RUNS_DIR = join(ROOT, 'runs');
-const MEMORY_DIR = join(RUNS_DIR, 'memory');
+const IS_VERCEL = !!process.env.VERCEL;
+const RUNS_DIR = IS_VERCEL ? '/tmp/crucix/runs' : join(ROOT, 'runs');
+const MEMORY_DIR = IS_VERCEL ? '/tmp/crucix/runs/memory' : join(RUNS_DIR, 'memory');
 
 // Ensure directories exist
 for (const dir of [RUNS_DIR, MEMORY_DIR, join(MEMORY_DIR, 'cold')]) {
@@ -479,7 +480,15 @@ process.on('uncaughtException', (err) => {
   console.error('[Crucix] Uncaught exception:', err?.stack || err?.message || err);
 });
 
-start().catch(err => {
-  console.error('[Crucix] FATAL — Server failed to start:', err?.stack || err?.message || err);
-  process.exit(1);
-});
+if (IS_VERCEL) {
+  // Serverless mode: Vercel routes requests to the exported app.
+  // Trigger the first sweep in the background so data is ready after cold start.
+  runSweepCycle().catch(err => console.error('[Crucix] Initial sweep failed:', err.message));
+} else {
+  start().catch(err => {
+    console.error('[Crucix] FATAL — Server failed to start:', err?.stack || err?.message || err);
+    process.exit(1);
+  });
+}
+
+export default app;
